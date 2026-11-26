@@ -13,5 +13,22 @@ RSpec.describe LNDClientInternal::Connection do
         'lndconnect://127.0.0.1:10002?cert=MIICHDCCAcKgAwIBAgIQc6IrnOuT-D7hJKoyvfEJ5TAKBggqhkjOPQQDAjAvMR8wHQYDVQQKExZsbmQgYXV0b2dlbmVyYXRlZCBjZXJ0MQwwCgYDVQQDEwNib2IwHhcNMjMwMzI1MTQ1NjU4WhcNMjQwNTE5MTQ1NjU4WjAvMR8wHQYDVQQKExZsbmQgYXV0b2dlbmVyYXRlZCBjZXJ0MQwwCgYDVQQDEwNib2IwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARPbXFiakJz1m2-q8SBgbj5W4FUlQri8PWiPtEzaPFFlyRPzZE6PVwbjnVPSaPMb_bC3KUVx5Id3hc3Hh5OKDDdo4G_MIG8MA4GA1UdDwEB_wQEAwICpDATBgNVHSUEDDAKBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH_MB0GA1UdDgQWBBSePsb2Il_zqUeXsKAyt6RKJI3UBjBlBgNVHREEXjBcggNib2KCCWxvY2FsaG9zdIIDYm9iggxwb2xhci1uMS1ib2KCBHVuaXiCCnVuaXhwYWNrZXSCB2J1ZmNvbm6HBH8AAAGHEAAAAAAAAAAAAAAAAAAAAAGHBMCoIAMwCgYIKoZIzj0EAwIDSAAwRQIhANnrAUAbXF3HKN6FFLkvixbcDAMXujH2QD1w22V6vJFQAiAv8sY_96GrpRF-kQC9Y9iIZWdHfDfhfzgXh3tdkPpqLQ&macaroon=AgEDbG5kAvgBAwoQZjAOcyRGBSs8v9wLJ3Xv6BIBMBoWCgdhZGRyZXNzEgRyZWFkEgV3cml0ZRoTCgRpbmZvEgRyZWFkEgV3cml0ZRoXCghpbnZvaWNlcxIEcmVhZBIFd3JpdGUaIQoIbWFjYXJvb24SCGdlbmVyYXRlEgRyZWFkEgV3cml0ZRoWCgdtZXNzYWdlEgRyZWFkEgV3cml0ZRoXCghvZmZjaGFpbhIEcmVhZBIFd3JpdGUaFgoHb25jaGFpbhIEcmVhZBIFd3JpdGUaFAoFcGVlcnMSBHJlYWQSBXdyaXRlGhgKBnNpZ25lchIIZ2VuZXJhdGUSBHJlYWQAAAYgDZdbNEdhKl3abn3akDSo1dQn86sVOTxta3yIn6Q0ICk'
       )[:certificate]).to include('ZWdHfDfhfzgXh3tdkPpqLQ==')
     end
+
+    it 'does not pad a certificate whose base64 length is a multiple of 4' do
+      der = ('a'..'z').to_a.join * 30
+      cert = Base64.urlsafe_encode64(der, padding: false)
+      macaroon = Base64.urlsafe_encode64('macaroon', padding: false)
+
+      expect(cert.length % 4).to eq(0)
+
+      certificate = described_class.expand(
+        "lndconnect://127.0.0.1:10001?cert=#{cert}&macaroon=#{macaroon}"
+      )[:certificate]
+
+      body = certificate.lines.reject { |line| line.start_with?('-----') }.join.delete("\n")
+
+      expect(body).not_to end_with('=')
+      expect(Base64.strict_decode64(body)).to eq(der)
+    end
   end
 end
